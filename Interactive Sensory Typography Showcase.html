@@ -1,0 +1,894 @@
+<!DOCTYPE html>
+<html lang="en" class="scroll-smooth">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>ChromaLens — Interactive Sensory Typography</title>
+    
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Font Awesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,300;0,400;0,600;0,800;1,800&family=Space+Grotesk:wght@400;600;700&display=swap" rel="stylesheet">
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Plus Jakarta Sans', 'sans-serif'],
+                        display: ['Space Grotesk', 'sans-serif'],
+                    },
+                    colors: {
+                        brand: {
+                            dark: '#0a0a0f',
+                            card: '#12121c',
+                            accent: '#ff007f',
+                            cyan: '#00f0ff',
+                            purple: '#8a2be2',
+                        }
+                    },
+                    animation: {
+                        'marquee': 'marquee 25s linear infinite',
+                        'marquee-reverse': 'marquee-reverse 25s linear infinite',
+                        'float': 'float 6s ease-in-out infinite',
+                        'pulse-glow': 'pulseGlow 3s ease-in-out infinite',
+                    },
+                    keyframes: {
+                        marquee: {
+                            '0%': { transform: 'translateX(0%)' },
+                            '100%': { transform: 'translateX(-50%)' },
+                        },
+                        'marquee-reverse': {
+                            '0%': { transform: 'translateX(-50%)' },
+                            '100%': { transform: 'translateX(0%)' },
+                        },
+                        float: {
+                            '0%, 100%': { transform: 'translateY(0px) rotate(0deg)' },
+                            '50%': { transform: 'translateY(-12px) rotate(2deg)' },
+                        },
+                        pulseGlow: {
+                            '0%, 100%': { opacity: '0.4', transform: 'scale(1)' },
+                            '50%': { opacity: '0.8', transform: 'scale(1.05)' },
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #0a0a0f;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #262638;
+            border-radius: 3px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #00f0ff;
+        }
+
+        /* Prevent unwanted text highlight during rapid taps */
+        .no-select {
+            -webkit-touch-callout: none;
+            -webkit-user-select: none;
+            user-select: none;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        /* Negative Film Touch / Cursor Lens Effect */
+        #touch-lens {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 70px;
+            height: 70px;
+            border-radius: 50%;
+            background-color: #ffffff;
+            mix-blend-mode: difference;
+            pointer-events: none;
+            transform: translate(-50%, -50%) scale(1);
+            transition: width 0.25s ease-out, height 0.25s ease-out, transform 0.08s ease-out, border-radius 0.3s;
+            z-index: 99999;
+            box-shadow: 0 0 20px rgba(255, 255, 255, 0.8);
+            border: 1px solid rgba(255, 255, 255, 0.9);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        #touch-lens::before {
+            content: '';
+            width: 6px;
+            height: 6px;
+            background-color: #000000;
+            border-radius: 50%;
+            opacity: 0.6;
+        }
+
+        #touch-lens.active-touch {
+            width: 110px;
+            height: 110px;
+            box-shadow: 0 0 30px rgba(255, 255, 255, 1);
+        }
+
+        /* Dynamic Underline Animation for Last Word in Lines */
+        .last-word-underline {
+            position: relative;
+            display: inline-block;
+            cursor: pointer;
+            white-space: nowrap;
+        }
+
+        .last-word-underline::after {
+            content: '';
+            position: absolute;
+            bottom: -2px;
+            left: 0;
+            width: 0%;
+            height: 3px;
+            background: linear-gradient(90deg, #ff007f, #00f0ff, #8a2be2);
+            border-radius: 4px;
+            transition: width 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+            box-shadow: 0 0 8px rgba(0, 240, 255, 0.6);
+        }
+
+        .last-word-underline.is-revealed::after,
+        .last-word-underline:hover::after {
+            width: 100%;
+        }
+
+        /* Interactive Touch Words Styling */
+        .touch-word {
+            display: inline-block;
+            transition: color 0.25s cubic-bezier(0.4, 0, 0.2, 1), transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+            cursor: pointer;
+            position: relative;
+        }
+
+        .touch-word:active {
+            transform: scale(1.18) rotate(-2deg);
+        }
+
+        /* Reveal on Scroll animation states */
+        .reveal-on-scroll {
+            opacity: 0;
+            transform: translateY(30px);
+            transition: opacity 0.8s cubic-bezier(0.16, 1, 0.3, 1), transform 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        .reveal-on-scroll.is-visible {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        /* Canvas Particle overlay */
+        #particle-canvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 999;
+        }
+    </style>
+</head>
+
+<body class="bg-brand-dark text-slate-100 font-sans overflow-x-hidden no-select antialiased selection:bg-brand-cyan selection:text-black">
+
+    <!-- Touch Sensing Dot with Negative Film Lens Effect -->
+    <div id="touch-lens" class="hidden md:flex" aria-hidden="true"></div>
+
+    <!-- Particle Explosion Overlay Canvas -->
+    <canvas id="particle-canvas"></canvas>
+
+    <!-- Scroll Progress Indicator Bar -->
+    <div class="fixed top-0 left-0 h-1 bg-gradient-to-r from-brand-accent via-brand-cyan to-brand-purple z-50 transition-all duration-150" id="scroll-progress" style="width: 0%"></div>
+
+    <!-- Sticky Navigation Header -->
+    <header class="fixed top-0 left-0 w-full z-40 backdrop-blur-md bg-brand-dark/70 border-b border-white/10 px-4 sm:px-8 py-4 transition-all duration-300">
+        <div class="max-w-7xl mx-auto flex items-center justify-between">
+            <a href="#" class="flex items-center gap-2 group">
+                <div class="w-8 h-8 rounded-full bg-gradient-to-tr from-brand-accent to-brand-cyan flex items-center justify-center font-bold text-black font-display text-sm group-hover:rotate-12 transition-transform">
+                    CL
+                </div>
+                <span class="font-display font-bold text-lg tracking-wider bg-clip-text text-transparent bg-gradient-to-r from-white via-slate-200 to-slate-400">
+                    CHROMALENS
+                </span>
+            </a>
+
+            <!-- Lens Control Indicator Pill -->
+            <div class="hidden sm:flex items-center gap-3 bg-white/5 border border-white/10 px-4 py-1.5 rounded-full text-xs font-medium text-slate-300">
+                <span class="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
+                <span id="lens-status">Touch Lens Active (Invert Mode)</span>
+            </div>
+
+            <!-- Mobile Menu Quick Controls -->
+            <button id="toggle-lens-btn" class="p-2.5 rounded-xl bg-white/10 text-white hover:bg-white/20 active:scale-95 transition-all text-xs flex items-center gap-2 border border-white/10">
+                <i class="fa-solid fa-eye-dropper text-brand-cyan"></i>
+                <span class="hidden xs:inline">Toggle Lens</span>
+            </button>
+        </div>
+    </header>
+
+    <!-- Main Content Wrapper -->
+    <main class="relative pt-24 sm:pt-32">
+
+        <!-- Hero Section -->
+        <section class="min-h-[85vh] flex flex-col justify-center items-center px-4 sm:px-6 relative overflow-hidden">
+            <!-- Glowing Background Orbs -->
+            <div class="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[300px] sm:w-[600px] h-[300px] sm:h-[600px] bg-gradient-to-tr from-brand-accent/20 to-brand-cyan/20 rounded-full blur-[100px] pointer-events-none animate-pulse-glow"></div>
+
+            <div class="max-w-4xl mx-auto text-center z-10 space-y-6">
+                <!-- Badge -->
+                <div class="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/5 border border-white/10 text-brand-cyan text-xs sm:text-sm font-semibold tracking-wide backdrop-blur-md">
+                    <i class="fa-solid fa-wand-magic-sparkles"></i>
+                    <span>Touch Any Word to Transform Color</span>
+                </div>
+
+                <!-- Main Dynamic Headline with Line-Ending Underlines -->
+                <h1 class="text-3xl sm:text-5xl lg:text-7xl font-display font-extrabold tracking-tight text-white leading-tight sm:leading-tight lg:leading-tight">
+                    <div class="mb-2">
+                        <span class="touch-word">Experience</span> 
+                        <span class="touch-word">the</span> 
+                        <span class="touch-word">future</span> 
+                        <span class="touch-word">of</span> 
+                        <span class="touch-word">digital</span> 
+                        <span class="last-word-underline touch-word text-brand-cyan">typography</span>
+                    </div>
+                    <div>
+                        <span class="touch-word">where</span> 
+                        <span class="touch-word">words</span> 
+                        <span class="touch-word">respond</span> 
+                        <span class="touch-word">to</span> 
+                        <span class="touch-word">your</span> 
+                        <span class="last-word-underline touch-word text-brand-accent">touch.</span>
+                    </div>
+                </h1>
+
+                <!-- Subtitle Paragraph -->
+                <p class="text-slate-400 text-sm sm:text-lg max-w-2xl mx-auto leading-relaxed">
+                    <span class="touch-word">Drag</span> 
+                    <span class="touch-word">your</span> 
+                    <span class="touch-word">finger</span> 
+                    <span class="touch-word">or</span> 
+                    <span class="touch-word">cursor</span> 
+                    <span class="touch-word">to</span> 
+                    <span class="touch-word">reveal</span> 
+                    <span class="touch-word">the</span> 
+                    <span class="touch-word">negative</span> 
+                    <span class="last-word-underline touch-word font-semibold text-white">film-lens.</span>
+                </p>
+
+                <!-- Interactive Hero Buttons -->
+                <div class="flex flex-wrap items-center justify-center gap-4 pt-6">
+                    <button id="burst-all-btn" class="px-6 py-3.5 rounded-full bg-gradient-to-r from-brand-accent to-brand-purple font-semibold text-white shadow-lg shadow-brand-accent/25 hover:shadow-brand-accent/40 active:scale-95 transition-all text-sm flex items-center gap-2">
+                        <i class="fa-solid fa-fire"></i>
+                        <span>Color Explosion</span>
+                    </button>
+                    
+                    <a href="#interactive-zone" class="px-6 py-3.5 rounded-full bg-white/10 hover:bg-white/20 border border-white/15 font-semibold text-white backdrop-blur-md active:scale-95 transition-all text-sm flex items-center gap-2">
+                        <span>Explore Features</span>
+                        <i class="fa-solid fa-arrow-down text-brand-cyan"></i>
+                    </a>
+                </div>
+            </div>
+
+            <!-- Scroll Down Prompt Indicator -->
+            <div class="absolute bottom-6 left-1/2 -translate-x-1/2 flex flex-col items-center gap-2 text-slate-400 text-xs font-mono animate-bounce">
+                <span>SCROLL TO ANIMATE</span>
+                <i class="fa-solid fa-chevron-down text-brand-cyan"></i>
+            </div>
+        </section>
+
+        <!-- Moving Words Continuous Infinite Marquee Section -->
+        <section class="py-12 border-y border-white/10 bg-black/40 backdrop-blur-md overflow-hidden relative">
+            <div class="absolute left-0 top-0 bottom-0 w-24 bg-gradient-to-r from-brand-dark to-transparent z-10 pointer-events-none"></div>
+            <div class="absolute right-0 top-0 bottom-0 w-24 bg-gradient-to-l from-brand-dark to-transparent z-10 pointer-events-none"></div>
+
+            <!-- Forward Marquee Row -->
+            <div class="flex whitespace-nowrap animate-marquee mb-4">
+                <div class="flex items-center gap-8 text-2xl sm:text-4xl font-display font-bold tracking-wider text-slate-500 uppercase px-4">
+                    <span class="touch-word hover:text-brand-cyan">Kinetic Typography</span> •
+                    <span class="touch-word hover:text-brand-accent">Negative Film Lens</span> •
+                    <span class="touch-word hover:text-brand-purple">Touch Interaction</span> •
+                    <span class="touch-word hover:text-emerald-400">Underline Reveals</span> •
+                    <span class="touch-word hover:text-amber-300">Dynamic Color Shifts</span> •
+                </div>
+                <div class="flex items-center gap-8 text-2xl sm:text-4xl font-display font-bold tracking-wider text-slate-500 uppercase px-4" aria-hidden="true">
+                    <span class="touch-word hover:text-brand-cyan">Kinetic Typography</span> •
+                    <span class="touch-word hover:text-brand-accent">Negative Film Lens</span> •
+                    <span class="touch-word hover:text-brand-purple">Touch Interaction</span> •
+                    <span class="touch-word hover:text-emerald-400">Underline Reveals</span> •
+                    <span class="touch-word hover:text-amber-300">Dynamic Color Shifts</span> •
+                </div>
+            </div>
+
+            <!-- Reverse Marquee Row -->
+            <div class="flex whitespace-nowrap animate-marquee-reverse">
+                <div class="flex items-center gap-8 text-xl sm:text-3xl font-display font-semibold tracking-wider text-slate-600 uppercase px-4">
+                    <span class="touch-word hover:text-brand-cyan">Scroll Triggered</span> ★
+                    <span class="touch-word hover:text-pink-500">Fluid Responsive</span> ★
+                    <span class="touch-word hover:text-brand-accent">Interactive Canvas</span> ★
+                    <span class="touch-word hover:text-indigo-400">Adaptive Touch</span> ★
+                    <span class="touch-word hover:text-yellow-400">Visual Depth</span> ★
+                </div>
+                <div class="flex items-center gap-8 text-xl sm:text-3xl font-display font-semibold tracking-wider text-slate-600 uppercase px-4" aria-hidden="true">
+                    <span class="touch-word hover:text-brand-cyan">Scroll Triggered</span> ★
+                    <span class="touch-word hover:text-pink-500">Fluid Responsive</span> ★
+                    <span class="touch-word hover:text-brand-accent">Interactive Canvas</span> ★
+                    <span class="touch-word hover:text-indigo-400">Adaptive Touch</span> ★
+                    <span class="touch-word hover:text-yellow-400">Visual Depth</span> ★
+                </div>
+            </div>
+        </section>
+
+        <!-- Interactive Playground Section -->
+        <section id="interactive-zone" class="py-24 px-4 sm:px-8 max-w-7xl mx-auto">
+            <!-- Section Header -->
+            <div class="text-center max-w-3xl mx-auto mb-16 reveal-on-scroll">
+                <h2 class="text-2xl sm:text-4xl font-display font-bold text-white mb-4">
+                    <span class="touch-word">Interactive</span> 
+                    <span class="touch-word">Touch</span> 
+                    <span class="last-word-underline touch-word text-brand-cyan">Playground.</span>
+                </h2>
+                <p class="text-slate-400 text-sm sm:text-base">
+                    <span class="touch-word">Tap</span> 
+                    <span class="touch-word">individual</span> 
+                    <span class="touch-word">words</span> 
+                    <span class="touch-word">below</span> 
+                    <span class="touch-word">to</span> 
+                    <span class="touch-word">trigger</span> 
+                    <span class="touch-word">instant</span> 
+                    <span class="touch-word">vibrant</span> 
+                    <span class="touch-word">color</span> 
+                    <span class="last-word-underline touch-word font-semibold text-slate-200">transformations.</span>
+                </p>
+            </div>
+
+            <!-- Feature Grid Cards -->
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8">
+                
+                <!-- Feature 1: Touch Color Changing -->
+                <div class="reveal-on-scroll bg-brand-card/80 border border-white/10 rounded-3xl p-6 sm:p-8 backdrop-blur-xl hover:border-brand-accent/50 transition-all duration-300 group hover:-translate-y-2">
+                    <div class="w-12 h-12 rounded-2xl bg-brand-accent/10 border border-brand-accent/30 text-brand-accent flex items-center justify-center text-xl mb-6 group-hover:scale-110 transition-transform">
+                        <i class="fa-solid fa-palette"></i>
+                    </div>
+                    <h3 class="text-xl font-display font-bold text-white mb-3">
+                        <span class="touch-word">Touch</span> 
+                        <span class="touch-word">Color</span> 
+                        <span class="last-word-underline touch-word text-brand-accent">Spectrum.</span>
+                    </h3>
+                    <p class="text-slate-400 text-sm leading-relaxed mb-6">
+                        <span class="touch-word">Every</span> 
+                        <span class="touch-word">word</span> 
+                        <span class="touch-word">carries</span> 
+                        <span class="touch-word">a</span> 
+                        <span class="touch-word">dynamic</span> 
+                        <span class="touch-word">color</span> 
+                        <span class="touch-word">state.</span> 
+                        <span class="touch-word">Tap</span> 
+                        <span class="touch-word">or</span> 
+                        <span class="touch-word">touch</span> 
+                        <span class="touch-word">to</span> 
+                        <span class="touch-word">paint</span> 
+                        <span class="touch-word">with</span> 
+                        <span class="last-word-underline touch-word font-semibold text-white">light.</span>
+                    </p>
+                    <div class="flex flex-wrap gap-2 pt-2">
+                        <span class="touch-word text-xs px-3 py-1.5 rounded-full bg-white/5 border border-white/10 text-slate-300">Vibrant Hues</span>
+                        <span class="touch-word text-xs px-3 py-1.5 rounded-full bg-white/5 border border-white/10 text-slate-300">Particle Sparks</span>
+                    </div>
+                </div>
+
+                <!-- Feature 2: Negative Film Dot -->
+                <div class="reveal-on-scroll bg-brand-card/80 border border-white/10 rounded-3xl p-6 sm:p-8 backdrop-blur-xl hover:border-brand-cyan/50 transition-all duration-300 group hover:-translate-y-2">
+                    <div class="w-12 h-12 rounded-2xl bg-brand-cyan/10 border border-brand-cyan/30 text-brand-cyan flex items-center justify-center text-xl mb-6 group-hover:scale-110 transition-transform">
+                        <i class="fa-solid fa-circle-half-stroke"></i>
+                    </div>
+                    <h3 class="text-xl font-display font-bold text-white mb-3">
+                        <span class="touch-word">Negative</span> 
+                        <span class="touch-word">Film</span> 
+                        <span class="last-word-underline touch-word text-brand-cyan">Sensing Lens.</span>
+                    </h3>
+                    <p class="text-slate-400 text-sm leading-relaxed mb-6">
+                        <span class="touch-word">The</span> 
+                        <span class="touch-word">touch</span> 
+                        <span class="touch-word">dot</span> 
+                        <span class="touch-word">acts</span> 
+                        <span class="touch-word">as</span> 
+                        <span class="touch-word">an</span> 
+                        <span class="touch-word">inverted</span> 
+                        <span class="touch-word">optical</span> 
+                        <span class="touch-word">filter,</span> 
+                        <span class="touch-word">reversing</span> 
+                        <span class="touch-word">shades</span> 
+                        <span class="touch-word">in</span> 
+                        <span class="last-word-underline touch-word font-semibold text-white">realtime.</span>
+                    </p>
+                    <div class="flex flex-wrap gap-2 pt-2">
+                        <span class="touch-word text-xs px-3 py-1.5 rounded-full bg-white/5 border border-white/10 text-slate-300">Difference Blend</span>
+                        <span class="touch-word text-xs px-3 py-1.5 rounded-full bg-white/5 border border-white/10 text-slate-300">Touch Follower</span>
+                    </div>
+                </div>
+
+                <!-- Feature 3: Line-Ending Underline -->
+                <div class="reveal-on-scroll bg-brand-card/80 border border-white/10 rounded-3xl p-6 sm:p-8 backdrop-blur-xl hover:border-brand-purple/50 transition-all duration-300 group hover:-translate-y-2 md:col-span-2 lg:col-span-1">
+                    <div class="w-12 h-12 rounded-2xl bg-brand-purple/10 border border-brand-purple/30 text-brand-purple flex items-center justify-center text-xl mb-6 group-hover:scale-110 transition-transform">
+                        <i class="fa-solid fa-terminal"></i>
+                    </div>
+                    <h3 class="text-xl font-display font-bold text-white mb-3">
+                        <span class="touch-word">Line</span> 
+                        <span class="touch-word">Terminal</span> 
+                        <span class="last-word-underline touch-word text-brand-purple">Underlines.</span>
+                    </h3>
+                    <p class="text-slate-400 text-sm leading-relaxed mb-6">
+                        <span class="touch-word">Notice</span> 
+                        <span class="touch-word">how</span> 
+                        <span class="touch-word">the</span> 
+                        <span class="touch-word">final</span> 
+                        <span class="touch-word">words</span> 
+                        <span class="touch-word">of</span> 
+                        <span class="touch-word">every</span> 
+                        <span class="touch-word">line</span> 
+                        <span class="touch-word">automatically</span> 
+                        <span class="touch-word">draw</span> 
+                        <span class="touch-word">neon</span> 
+                        <span class="last-word-underline touch-word font-semibold text-white">underlines.</span>
+                    </p>
+                    <div class="flex flex-wrap gap-2 pt-2">
+                        <span class="touch-word text-xs px-3 py-1.5 rounded-full bg-white/5 border border-white/10 text-slate-300">Scroll Reveals</span>
+                        <span class="touch-word text-xs px-3 py-1.5 rounded-full bg-white/5 border border-white/10 text-slate-300">Precision Typography</span>
+                    </div>
+                </div>
+
+            </div>
+        </section>
+
+        <!-- Dynamic Touch Word Matrix Section -->
+        <section class="py-20 px-4 sm:px-8 bg-gradient-to-b from-transparent via-brand-card/50 to-transparent relative">
+            <div class="max-w-5xl mx-auto rounded-3xl border border-white/10 p-6 sm:p-12 bg-brand-dark/80 backdrop-blur-2xl shadow-2xl reveal-on-scroll">
+                
+                <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-8 border-b border-white/10 pb-6">
+                    <div>
+                        <span class="text-xs font-mono text-brand-cyan tracking-wider uppercase block mb-1">Interactive Sandbox</span>
+                        <h3 class="text-xl sm:text-2xl font-display font-bold text-white">
+                            <span class="touch-word">Sensory</span> 
+                            <span class="touch-word">Word</span> 
+                            <span class="last-word-underline touch-word text-brand-cyan">Matrix.</span>
+                        </h3>
+                    </div>
+                    <button id="randomize-colors-btn" class="px-4 py-2 rounded-xl bg-white/10 hover:bg-white/20 border border-white/15 text-xs text-slate-200 font-semibold active:scale-95 transition-all flex items-center gap-2">
+                        <i class="fa-solid fa-shuffle text-brand-accent"></i>
+                        <span>Randomize Colors</span>
+                    </button>
+                </div>
+
+                <!-- Paragraph constructed with touchable dynamic words -->
+                <div class="text-lg sm:text-2xl font-sans font-medium text-slate-300 leading-relaxed space-y-4">
+                    <p class="line-container">
+                        <span class="touch-word">Design</span> 
+                        <span class="touch-word">is</span> 
+                        <span class="touch-word">not</span> 
+                        <span class="touch-word">just</span> 
+                        <span class="touch-word">what</span> 
+                        <span class="touch-word">it</span> 
+                        <span class="touch-word">looks</span> 
+                        <span class="touch-word">like</span> 
+                        <span class="touch-word">and</span> 
+                        <span class="touch-word">feels</span> 
+                        <span class="touch-word">like;</span> 
+                        <span class="touch-word">design</span> 
+                        <span class="touch-word">is</span> 
+                        <span class="touch-word">how</span> 
+                        <span class="touch-word">it</span> 
+                        <span class="last-word-underline touch-word text-brand-accent">works.</span>
+                    </p>
+                    <p class="line-container">
+                        <span class="touch-word">Creativity</span> 
+                        <span class="touch-word">is</span> 
+                        <span class="touch-word">intelligence</span> 
+                        <span class="touch-word">having</span> 
+                        <span class="last-word-underline touch-word text-brand-cyan">fun.</span>
+                    </p>
+                    <p class="line-container">
+                        <span class="touch-word">Every</span> 
+                        <span class="touch-word">touch</span> 
+                        <span class="touch-word">leaves</span> 
+                        <span class="touch-word">an</span> 
+                        <span class="touch-word">unmistakable</span> 
+                        <span class="last-word-underline touch-word text-brand-purple">impression.</span>
+                    </p>
+                </div>
+
+                <!-- Interactive Lens Customizer Controls inside Matrix -->
+                <div class="mt-10 pt-6 border-t border-white/10 grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    <div class="bg-white/5 p-4 rounded-2xl border border-white/5">
+                        <span class="text-xs text-slate-400 block mb-2 font-mono">Lens Size Control</span>
+                        <input type="range" id="lens-size-slider" min="40" max="150" value="70" class="w-full accent-brand-cyan cursor-pointer">
+                    </div>
+                    <div class="bg-white/5 p-4 rounded-2xl border border-white/5">
+                        <span class="text-xs text-slate-400 block mb-2 font-mono">Invert Effect Blend Mode</span>
+                        <select id="blend-mode-select" class="w-full bg-brand-dark border border-white/15 rounded-lg px-3 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-brand-cyan">
+                            <option value="difference">Difference (Negative)</option>
+                            <option value="exclusion">Exclusion Soft Invert</option>
+                            <option value="color-dodge">Color Dodge</option>
+                            <option value="overlay">High Overlay</option>
+                        </select>
+                    </div>
+                    <div class="bg-white/5 p-4 rounded-2xl border border-white/5 flex items-center justify-between">
+                        <div>
+                            <span class="text-xs text-slate-400 block font-mono">Lens Shape</span>
+                            <span id="shape-label" class="text-xs font-semibold text-brand-cyan">Circle Lens</span>
+                        </div>
+                        <button id="toggle-shape-btn" class="px-3 py-1.5 rounded-lg bg-brand-cyan/20 border border-brand-cyan/40 text-brand-cyan text-xs font-semibold active:scale-95 transition-all">
+                            Morph Shape
+                        </button>
+                    </div>
+                </div>
+
+            </div>
+        </section>
+
+        <!-- Kinetic Floating Words Cloud -->
+        <section class="py-20 px-4 sm:px-8 max-w-7xl mx-auto overflow-hidden">
+            <div class="text-center mb-12 reveal-on-scroll">
+                <h2 class="text-2xl sm:text-4xl font-display font-bold text-white mb-3">
+                    <span class="touch-word">Dynamic</span> 
+                    <span class="touch-word">Floating</span> 
+                    <span class="last-word-underline touch-word text-brand-accent">Words.</span>
+                </h2>
+                <p class="text-slate-400 text-sm">
+                    <span class="touch-word">Hover</span> 
+                    <span class="touch-word">or</span> 
+                    <span class="touch-word">tap</span> 
+                    <span class="touch-word">words</span> 
+                    <span class="touch-word">in</span> 
+                    <span class="touch-word">motion</span> 
+                    <span class="touch-word">to</span> 
+                    <span class="touch-word">alter</span> 
+                    <span class="touch-word">their</span> 
+                    <span class="last-word-underline touch-word font-semibold text-slate-200">trajectory.</span>
+                </p>
+            </div>
+
+            <!-- Word Cloud Bubble Grid -->
+            <div class="flex flex-wrap justify-center gap-3 sm:gap-5 max-w-4xl mx-auto">
+                <span class="touch-word animate-float text-base sm:text-xl font-bold px-5 py-3 rounded-2xl bg-white/5 border border-white/10 text-brand-cyan shadow-lg backdrop-blur-md hover:scale-110">INNOVATION</span>
+                <span class="touch-word animate-float text-sm sm:text-lg font-semibold px-5 py-3 rounded-2xl bg-white/5 border border-white/10 text-brand-accent shadow-lg backdrop-blur-md hover:scale-110" style="animation-delay: 1s;">CREATIVITY</span>
+                <span class="touch-word animate-float text-lg sm:text-2xl font-black px-6 py-3 rounded-2xl bg-white/5 border border-white/10 text-brand-purple shadow-lg backdrop-blur-md hover:scale-110" style="animation-delay: 2s;">RESPONSIVE</span>
+                <span class="touch-word animate-float text-xs sm:text-base font-medium px-4 py-2.5 rounded-2xl bg-white/5 border border-white/10 text-emerald-400 shadow-lg backdrop-blur-md hover:scale-110" style="animation-delay: 1.5s;">SENSORY</span>
+                <span class="touch-word animate-float text-base sm:text-xl font-bold px-5 py-3 rounded-2xl bg-white/5 border border-white/10 text-amber-300 shadow-lg backdrop-blur-md hover:scale-110" style="animation-delay: 2.5s;">DYNAMIC</span>
+                <span class="touch-word animate-float text-sm sm:text-lg font-bold px-5 py-3 rounded-2xl bg-white/5 border border-white/10 text-pink-400 shadow-lg backdrop-blur-md hover:scale-110" style="animation-delay: 0.5s;">INTERACTIVE</span>
+                <span class="touch-word animate-float text-lg sm:text-2xl font-extrabold px-6 py-3 rounded-2xl bg-white/5 border border-white/10 text-indigo-400 shadow-lg backdrop-blur-md hover:scale-110" style="animation-delay: 3s;">NEGATIVE FILM</span>
+                <span class="touch-word animate-float text-xs sm:text-base font-semibold px-4 py-2.5 rounded-2xl bg-white/5 border border-white/10 text-teal-300 shadow-lg backdrop-blur-md hover:scale-110" style="animation-delay: 1.2s;">CHROMA</span>
+            </div>
+        </section>
+
+        <!-- Footer -->
+        <footer class="mt-20 border-t border-white/10 py-12 px-4 sm:px-8 bg-brand-dark relative">
+            <div class="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-6">
+                
+                <div class="text-center sm:text-left">
+                    <div class="flex items-center justify-center sm:justify-start gap-2 mb-2">
+                        <div class="w-6 h-6 rounded-full bg-brand-cyan flex items-center justify-center font-bold text-black text-xs font-display">CL</div>
+                        <span class="font-display font-bold text-white tracking-wider text-sm">CHROMALENS</span>
+                    </div>
+                    <p class="text-slate-500 text-xs">
+                        <span class="touch-word">Crafted</span> 
+                        <span class="touch-word">for</span> 
+                        <span class="touch-word">touch</span> 
+                        <span class="touch-word">and</span> 
+                        <span class="touch-word">scroll</span> 
+                        <span class="last-word-underline touch-word font-semibold text-slate-400">experiences.</span>
+                    </p>
+                </div>
+
+                <!-- Footer Quick Actions -->
+                <div class="flex items-center gap-4">
+                    <button onclick="window.scrollTo({top: 0, behavior: 'smooth'})" class="p-3 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-slate-300 hover:text-white transition-all active:scale-95 text-xs flex items-center gap-2">
+                        <i class="fa-solid fa-arrow-up text-brand-cyan"></i>
+                        <span>Back to Top</span>
+                    </button>
+                </div>
+
+            </div>
+        </footer>
+
+    </main>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+
+            /* ==========================================================================
+               1. TOUCH SENSING DOT / NEGATIVE FILM LENS CONTROLLER
+               ========================================================================== */
+            const lens = document.getElementById('touch-lens');
+            const lensStatus = document.getElementById('lens-status');
+            const toggleLensBtn = document.getElementById('toggle-lens-btn');
+            const lensSizeSlider = document.getElementById('lens-size-slider');
+            const blendModeSelect = document.getElementById('blend-mode-select');
+            const toggleShapeBtn = document.getElementById('toggle-shape-btn');
+            const shapeLabel = document.getElementById('shape-label');
+
+            let lensEnabled = true;
+            let currentSize = 70;
+            let isCircle = true;
+            let mouseX = window.innerWidth / 2;
+            let mouseY = window.innerHeight / 2;
+            let lensX = mouseX;
+            let lensY = mouseY;
+
+            // Smooth Interpolation for Lens Movement
+            function animateLens() {
+                if (lensEnabled) {
+                    lensX += (mouseX - lensX) * 0.25;
+                    lensY += (mouseY - lensY) * 0.25;
+                    lens.style.left = `${lensX}px`;
+                    lens.style.top = `${lensY}px`;
+                }
+                requestAnimationFrame(animateLens);
+            }
+            animateLens();
+
+            // Track Mouse / Pointer Position
+            window.addEventListener('pointermove', (e) => {
+                mouseX = e.clientX;
+                mouseY = e.clientY;
+                if (lens.classList.contains('hidden') && lensEnabled) {
+                    lens.classList.remove('hidden');
+                }
+            });
+
+            // Active scale boost on Touch / Tap Down
+            window.addEventListener('pointerdown', (e) => {
+                mouseX = e.clientX;
+                mouseY = e.clientY;
+                lens.classList.add('active-touch');
+            });
+
+            window.addEventListener('pointerup', () => {
+                lens.classList.remove('active-touch');
+            });
+
+            // Toggle Lens Visibility
+            toggleLensBtn.addEventListener('click', () => {
+                lensEnabled = !lensEnabled;
+                if (lensEnabled) {
+                    lens.style.display = 'flex';
+                    lensStatus.textContent = 'Touch Lens Active (Invert Mode)';
+                    lensStatus.previousElementSibling.className = 'w-2 h-2 rounded-full bg-emerald-400 animate-ping';
+                } else {
+                    lens.style.display = 'none';
+                    lensStatus.textContent = 'Touch Lens Disabled';
+                    lensStatus.previousElementSibling.className = 'w-2 h-2 rounded-full bg-rose-500';
+                }
+            });
+
+            // Adjust Lens Size
+            if (lensSizeSlider) {
+                lensSizeSlider.addEventListener('input', (e) => {
+                    currentSize = e.target.value;
+                    lens.style.width = `${currentSize}px`;
+                    lens.style.height = `${currentSize}px`;
+                });
+            }
+
+            // Adjust Lens Blend Mode
+            if (blendModeSelect) {
+                blendModeSelect.addEventListener('change', (e) => {
+                    lens.style.mixBlendMode = e.target.value;
+                });
+            }
+
+            // Toggle Lens Shape (Circle vs Rounded Square Lens)
+            if (toggleShapeBtn) {
+                toggleShapeBtn.addEventListener('click', () => {
+                    isCircle = !isCircle;
+                    if (isCircle) {
+                        lens.style.borderRadius = '50%';
+                        shapeLabel.textContent = 'Circle Lens';
+                    } else {
+                        lens.style.borderRadius = '16px';
+                        shapeLabel.textContent = 'Squircle Lens';
+                    }
+                });
+            }
+
+            /* ==========================================================================
+               2. COLOUR CHANGING WORDS ON TOUCH / TAP
+               ========================================================================== */
+            const touchWords = document.querySelectorAll('.touch-word');
+
+            // Vibrant HSL Palette Generator
+            function getRandomVibrantColor() {
+                const hue = Math.floor(Math.random() * 360);
+                return {
+                    color: `hsl(${hue}, 95%, 65%)`,
+                    shadow: `0 0 16px hsl(${hue}, 90%, 65%)`
+                };
+            }
+
+            touchWords.forEach(word => {
+                // Event listener for touch/click color change
+                word.addEventListener('pointerdown', (e) => {
+                    e.stopPropagation();
+                    const style = getRandomVibrantColor();
+                    word.style.color = style.color;
+                    word.style.textShadow = style.shadow;
+                    
+                    // Trigger dynamic micro scale bounce
+                    word.style.transform = 'scale(1.25) rotate(' + (Math.random() * 10 - 5) + 'deg)';
+                    setTimeout(() => {
+                        word.style.transform = '';
+                    }, 250);
+
+                    // Trigger Particle Burst at touch coordinates
+                    createParticleBurst(e.clientX, e.clientY, style.color);
+                });
+            });
+
+            // Randomize all words button
+            const randomizeBtn = document.getElementById('randomize-colors-btn');
+            if (randomizeBtn) {
+                randomizeBtn.addEventListener('click', () => {
+                    touchWords.forEach(word => {
+                        const style = getRandomVibrantColor();
+                        word.style.color = style.color;
+                        word.style.textShadow = style.shadow;
+                    });
+                });
+            }
+
+            // Burst All Hero Button
+            const burstAllBtn = document.getElementById('burst-all-btn');
+            if (burstAllBtn) {
+                burstAllBtn.addEventListener('click', (e) => {
+                    const rect = burstAllBtn.getBoundingClientRect();
+                    const centerX = rect.left + rect.width / 2;
+                    const centerY = rect.top + rect.height / 2;
+
+                    for (let i = 0; i < 40; i++) {
+                        const angle = Math.random() * Math.PI * 2;
+                        const dist = Math.random() * 100;
+                        const px = centerX + Math.cos(angle) * dist;
+                        const py = centerY + Math.sin(angle) * dist;
+                        const style = getRandomVibrantColor();
+                        createParticleBurst(px, py, style.color);
+                    }
+
+                    touchWords.forEach(word => {
+                        const style = getRandomVibrantColor();
+                        word.style.color = style.color;
+                    });
+                });
+            }
+
+            /* ==========================================================================
+               3. UNDERLINING ANIMATION ON LAST WORDS OF ALL LINES
+               ========================================================================== */
+            const underlineWords = document.querySelectorAll('.last-word-underline');
+
+            // IntersectionObserver to reveal underlines smooth on scroll into view
+            const underlineObserver = new IntersectionObserver((entries) => {
+                entries.forEach(entry => {
+                    if (entry.isIntersecting) {
+                        entry.target.classList.add('is-revealed');
+                    }
+                });
+            }, { threshold: 0.3 });
+
+            underlineWords.forEach(word => underlineObserver.observe(word));
+
+
+            /* ==========================================================================
+               4. SCROLL ANIMATIONS & SCROLL PROGRESS BAR
+               ========================================================================== */
+            const scrollProgressBar = document.getElementById('scroll-progress');
+            const revealElements = document.querySelectorAll('.reveal-on-scroll');
+
+            function handleScroll() {
+                // Update Progress Bar Width
+                const winScroll = document.documentElement.scrollTop || document.body.scrollTop;
+                const height = document.documentElement.scrollHeight - document.documentElement.clientHeight;
+                const scrolled = (winScroll / height) * 100;
+                if (scrollProgressBar) {
+                    scrollProgressBar.style.width = scrolled + '%';
+                }
+            }
+
+            window.addEventListener('scroll', handleScroll, { passive: true });
+
+            // Scroll Reveal Observer
+            const revealObserver = new IntersectionObserver((entries) => {
+                entries.forEach(entry => {
+                    if (entry.isIntersecting) {
+                        entry.target.classList.add('is-visible');
+                    }
+                });
+            }, { threshold: 0.15 });
+
+            revealElements.forEach(el => revealObserver.observe(el));
+
+
+            /* ==========================================================================
+               5. TOUCH PARTICLE BURST CANVAS SYSTEM
+               ========================================================================== */
+            const canvas = document.getElementById('particle-canvas');
+            const ctx = canvas.getContext('2d');
+            let particles = [];
+
+            function resizeCanvas() {
+                canvas.width = window.innerWidth;
+                canvas.height = window.innerHeight;
+            }
+            resizeCanvas();
+            window.addEventListener('resize', resizeCanvas);
+
+            class Particle {
+                constructor(x, y, color) {
+                    this.x = x;
+                    this.y = y;
+                    this.color = color;
+                    this.radius = Math.random() * 4 + 2;
+                    this.vx = (Math.random() - 0.5) * 8;
+                    this.vy = (Math.random() - 0.5) * 8;
+                    this.alpha = 1;
+                    this.decay = Math.random() * 0.03 + 0.015;
+                }
+
+                draw() {
+                    ctx.save();
+                    ctx.globalAlpha = this.alpha;
+                    ctx.beginPath();
+                    ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+                    ctx.fillStyle = this.color;
+                    ctx.shadowColor = this.color;
+                    ctx.shadowBlur = 10;
+                    ctx.fill();
+                    ctx.restore();
+                }
+
+                update() {
+                    this.x += this.vx;
+                    this.y += this.vy;
+                    this.vx *= 0.95;
+                    this.vy *= 0.95;
+                    this.alpha -= this.decay;
+                }
+            }
+
+            function createParticleBurst(x, y, color) {
+                for (let i = 0; i < 12; i++) {
+                    particles.push(new Particle(x, y, color));
+                }
+            }
+
+            function renderParticles() {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                for (let i = particles.length - 1; i >= 0; i--) {
+                    particles[i].update();
+                    particles[i].draw();
+                    if (particles[i].alpha <= 0) {
+                        particles.splice(i, 1);
+                    }
+                }
+                requestAnimationFrame(renderParticles);
+            }
+            renderParticles();
+
+        });
+    </script>
+</body>
+</html>
